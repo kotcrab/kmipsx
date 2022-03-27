@@ -23,7 +23,7 @@ See `example.main.kts` for a complete usage example. It shows how to:
 6) Call original game code from the compiled C++ code
 7) Render on screen some text and the internal id of the audio file that has started playing in game. This can be used as a base for a subtitle system.
 
-The example can be applied to tje Japanese version of Toaru Kagaku no Railgun. To apply the example:
+The example can be applied to the Japanese version of Toaru Kagaku no Railgun. To apply the example:
 
 1) Setup `pspsdk` (`psp-gcc`, `psp-ld`, `psp-strip` must be available)
 2) Extract ISO to some folder
