@@ -55,7 +55,11 @@ class ElfPatch(
       useRelativeChangeAddress -> startAddress
       else -> startAddress - baseAddress
     }
-    changes.add(ElfChange(writeAddress, assembleAsByteArray(startAddress + baseAddress, Endianness.Little, init)))
+    val startPc = when {
+      useRelativeChangeAddress -> startAddress + baseAddress
+      else -> startAddress
+    }
+    changes.add(ElfChange(writeAddress, assembleAsByteArray(startPc, Endianness.Little, init)))
   }
 
   fun removeRelocation(addr: Int) {

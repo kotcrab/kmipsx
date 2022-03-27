@@ -1,7 +1,6 @@
 @file:Repository("https://jitpack.io")
-@file:DependsOn("com.github.kotcrab:kmipsx:1fb772da94")
+@file:DependsOn("com.github.kotcrab:kmipsx:2dffcf52ef")
 
-import kio.util.child
 import kmips.Reg.*
 import kmips.assembleAsByteArray
 import kmipsx.elf.CompileResult
@@ -29,41 +28,39 @@ fun patchEboot(
   extractedIsoDir: File,
   decryptedEboot: File,
 ) {
+  println("Patching...")
   // A place to load our auxiliary patches, after original .bss ends
   val auxStartAddress = 0x08A12380
 
   // Prepare temporary directory for the compiled code
-  val tmpDir = extractedIsoDir.child("tmp").apply { mkdir() }
-  val patchCppFile = tmpDir.child("patch.cpp").apply { writeText(Code.patchCpp) }
+  val tmpDir = File(extractedIsoDir, "tmp").apply { mkdir() }
+  val patchCppFile = File(tmpDir, "patch.cpp").apply { writeText(Code.patchCpp) }
 
-  println("Compiling native code...")
   val compileResult = pspCodeCompiler(pspSdkDir)
     .compile(
       patchBaseAddress = auxStartAddress,
       srcFiles = listOf(patchCppFile),
-      outDir = tmpDir.child("out")
+      outDir = File(tmpDir, "out")
     )
 
   // Now that we have compiled the native code we can assemble patches
-  println("Assembling patches...")
   val assembler = EbootPatchesAssembler(compileResult, auxStartAddress)
   val auxPatchBytes = assembler.assembleAuxiliaryPatch()
   val ebootPatches = assembler.assembleEbootPatches(auxPatchBytes.size)
 
-  // We are pretty much ready to patch the original EBOOT now
-  println("Patching EBOOT...")
-  val ebootOut = extractedIsoDir.child("PSP_GAME/SYSDIR/EBOOT.BIN")
+  // We are almost ready to patch the original EBOOT now
+  val ebootOut = File(extractedIsoDir, "PSP_GAME/SYSDIR/EBOOT.BIN")
   decryptedEboot.copyTo(ebootOut, overwrite = true)
 
   // First let's write our auxiliary patch data
-  extractedIsoDir.child("patch").writeBytes(auxPatchBytes)
-  // Now we just need to extend ELF .bss section to make space for auxiliary patch
+  File(extractedIsoDir, "patch").writeBytes(auxPatchBytes)
+  // Then we need to extend ELF .bss section to make space for auxiliary patch
   extendElfBss(ebootOut, auxPatchBytes.size)
 
   // Then finally apply EBOOT patches!
   patchElf(decryptedEboot, ebootOut, ebootPatches, baseProgramHeaderIndex = 0, relocationSectionHeaderIndex = 4)
 
-  println("Cleaning up...")
+  // Clean up
   tmpDir.deleteRecursively()
 
   println("Done!")
@@ -75,19 +72,20 @@ class EbootPatchesAssembler(
 ) {
   private val functions = Functions()
 
+  // Patches that will be loaded from the auxiliary file into the expanded .bss section
   fun assembleAuxiliaryPatch() = assembleAsByteArray(auxStartAddress) {
     compiledElf(compileResult) // include our compiled C++ code
 
     align16()
 
     functions.subsRendererDispatch = region {
-      val ctx = preserve(callerSavedRegisters)
+      val ctx = preserve(callerSavedRegisters) // store current registers on stack before calling into compiled code
       jal(compileResult.functions.getValue("subsRenderer")) // call into C++
       nop()
       ctx.restore()
-      jal(0x8804000 + 0x00001F70) // call original replaced func
+      jal(0x8805F70) // call original function that was replaced with a call to this dispatcher
       nop()
-      j(0x8804000 + 0x00001390) // return to the old code
+      j(0x8805390) // return to the old code
       nop()
     }
 
@@ -103,21 +101,21 @@ class EbootPatchesAssembler(
     align16()
   }
 
-  // if you prefer you can commit baseAddress and use virtual addresses everywhere
-  fun assembleEbootPatches(auxiliarySize: Int) = patchSuite(baseAddress = 0x8804000) {
+  // Patch that will change some existing code in EBOOT
+  fun assembleEbootPatches(auxiliarySize: Int) = patchSuite {
     patch("Auxiliary: Load file") {
-      change(0x0016415C) {
+      change(0x896815C) {
         zeroTerminatedString("disc0:/patch")
       }
-      change(0x0097358) {
-        j(0x8804000 + 0x0016416C)
+      change(0x889B358) {
+        j(0x896816C)
         // keep original branch delay slot
       }
-      change(0x0016416C) {
+      change(0x896816C) {
         lui(v1, 0x892) // original replaced instr
         val ctx = preserve(callerSavedRegisters + s0)
 
-        la(a0, 0x8804000 + 0x0016415C)
+        la(a0, 0x896815C)
         li(a1, 1)
         jal(functions.sceIoOpen)
         li(a2, 31)
@@ -140,13 +138,13 @@ class EbootPatchesAssembler(
 
     }
     patch("Subtitles: Custom text render") {
-      change(0x00001388) {
+      change(0x8805388) {
         j(functions.subsRendererDispatch)
         nop()
       }
     }
     patch("Subtitles: Sound playback interceptor") {
-      change(0x000114E0) {
+      change(0x88154E0) {
         jal(functions.subsSoundPlaybackInterceptorDispatch)
         // keep orig branch delay slot
       }
