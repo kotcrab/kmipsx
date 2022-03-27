@@ -64,10 +64,10 @@ private class ElfPatcher(
   }
 
   private fun applyPatchChange(patch: ElfPatch, change: ElfChange) {
-    if (nextProgramHeader != null && change.startAddress > nextProgramHeader.offset) {
-      error("Trying to patch unsafe address: ${change.startAddress.toWHex()} (it overflows to the next ELF program header)")
+    if (nextProgramHeader != null && change.writeAddress > nextProgramHeader.offset) {
+      error("Trying to patch unsafe address: ${change.writeAddress.toWHex()} (it overflows to the next ELF program header)")
     }
-    arrayCopy(src = change.bytes, dest = outBytes, destPos = change.startAddress + baseProgramHeader.offset)
+    arrayCopy(src = change.bytes, dest = outBytes, destPos = change.writeAddress + baseProgramHeader.offset)
     autoRemovePatchChangeRelocations(patch, change)
   }
 
@@ -75,7 +75,7 @@ private class ElfPatcher(
     if (!patch.autoRemoveRelocations) {
       return
     }
-    for (i in change.startAddress until change.startAddress + change.bytes.size step 4) {
+    for (i in change.writeAddress until change.writeAddress + change.bytes.size step 4) {
       val typePositions = relocations[i] ?: continue
       clearRelocations(outBytes, typePositions)
     }

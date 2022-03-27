@@ -30,17 +30,14 @@ The example can be applied to the Japanese version of Toaru Kagaku no Railgun. T
 3) Decrypt the EBOOT (e.g. you can use PPSSPP dump feature)
 4) Either download [Kotlin compiler](https://github.com/JetBrains/kotlin/releases/latest) or setup normal  project
 
-If you have Koltlin compiler then run: (replace paths to match your setup)
+If you have Kotlin compiler then run: (replace paths to match your setup)
 ```
 kotlinc -script example.main.kts pspsdk-dir/bin ./iso-extract-dir ./decrypted-eboot-file
 ```
 
 Expected output:
 ```
-Compiling native code...
-Assembling patches...
-Patching EBOOT...
-Cleaning up...
+Patching...
 Done!
 ```
 
@@ -69,7 +66,7 @@ repositories {
 compile "com.github.kotcrab:kmipsx:$anyCommitHash"
 ```
 
-#### From Kotlin Script
+#### From Kotlin script
 
 Add the following lines at the top:
 

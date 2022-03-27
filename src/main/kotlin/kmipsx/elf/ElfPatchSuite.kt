@@ -5,16 +5,18 @@ import kmips.Endianness
 import kmips.assembleAsByteArray
 
 fun patchSuite(
-  baseAddress: Int = 0,
+  baseAddress: Int = 0x8804000,
+  useRelativeChangeAddress: Boolean = false,
   init: ElfPatchSuite.() -> Unit,
 ): ElfPatchSuite {
-  val suite = ElfPatchSuite(baseAddress)
+  val suite = ElfPatchSuite(baseAddress, useRelativeChangeAddress)
   suite.init()
   return suite
 }
 
 class ElfPatchSuite(
   private val baseAddress: Int,
+  private val useRelativeChangeAddress: Boolean,
 ) {
   internal val patches = mutableListOf<ElfPatch>()
 
@@ -24,7 +26,7 @@ class ElfPatchSuite(
     autoRemoveRelocations: Boolean = true,
     init: ElfPatch.() -> Unit,
   ) {
-    val patch = ElfPatch(name, baseAddress, enabled, autoRemoveRelocations)
+    val patch = ElfPatch(name, baseAddress, useRelativeChangeAddress, enabled, autoRemoveRelocations)
     patch.init()
     patches.add(patch)
   }
@@ -37,6 +39,7 @@ class ElfPatchSuite(
 class ElfPatch(
   val name: String,
   val baseAddress: Int,
+  val useRelativeChangeAddress: Boolean,
   val enabled: Boolean,
   val autoRemoveRelocations: Boolean,
 ) {
@@ -48,7 +51,11 @@ class ElfPatch(
     baseAddress: Int = this.baseAddress,
     init: Assembler.() -> Unit,
   ) {
-    changes.add(ElfChange(startAddress, assembleAsByteArray(startAddress + baseAddress, Endianness.Little, init)))
+    val writeAddress = when {
+      useRelativeChangeAddress -> startAddress
+      else -> startAddress - baseAddress
+    }
+    changes.add(ElfChange(writeAddress, assembleAsByteArray(startAddress + baseAddress, Endianness.Little, init)))
   }
 
   fun removeRelocation(addr: Int) {
@@ -57,6 +64,6 @@ class ElfPatch(
 }
 
 class ElfChange(
-  val startAddress: Int,
+  val writeAddress: Int,
   val bytes: ByteArray,
 )
