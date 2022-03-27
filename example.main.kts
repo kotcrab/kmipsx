@@ -1,5 +1,5 @@
 @file:Repository("https://jitpack.io")
-@file:DependsOn("com.github.kotcrab:kmipsx:2dffcf52ef")
+@file:DependsOn("com.github.kotcrab:kmipsx:3a6ef494a4")
 
 import kmips.Reg.*
 import kmips.assembleAsByteArray
@@ -90,10 +90,10 @@ class EbootPatchesAssembler(
     }
 
     functions.subsSoundPlaybackInterceptorDispatch = region {
-      move(a0, s0) // original code
+      move(a0, s0) // original code that was replaced with a call to this dispatcher
       val ctx = preserve(callerSavedRegisters)
       // a0 here is conveniently internal id to be played
-      jal(compileResult.functions.getValue("subsSoundPlaybackInterceptor"))
+      jal(compileResult.functions.getValue("subsSoundPlaybackInterceptor")) // call into C++
       nop()
       ctx.restoreAndExit()
     }
@@ -132,10 +132,9 @@ class EbootPatchesAssembler(
         move(a0, s0)
 
         ctx.restore()
-        j(0x0889b360)
+        j(0x889b360)
         nop()
       }
-
     }
     patch("Subtitles: Custom text render") {
       change(0x8805388) {
@@ -146,7 +145,7 @@ class EbootPatchesAssembler(
     patch("Subtitles: Sound playback interceptor") {
       change(0x88154E0) {
         jal(functions.subsSoundPlaybackInterceptorDispatch)
-        // keep orig branch delay slot
+        // keep original branch delay slot
       }
     }
   }
@@ -163,12 +162,11 @@ class Functions {
 }
 
 // Bundled C++ code to make the example self-contained
-// For normal projects you can just load from files
+// For normal projects you should just load from files
 object Code {
   val patchCpp = """
 #include <cstdint>
 
-// Core types
 typedef uint8_t u8;
 typedef uint16_t u16;
 typedef uint32_t u32;
@@ -195,7 +193,13 @@ void DrawCenteredText(const char* text, u32 y) {
   GameDrawText(text, (480 - width) / 2, y, 100, 0x45D);
 }
 
+// Our variables and functions
+
+static u32 internalAudioId = 0;
+static i32 remainingSubtitleFrames = 0;
+
 // Random itoa function
+
 void itoa(i32 i, char b[]) {
     char const digit[] = "0123456789";
     char* p = b;
@@ -214,11 +218,6 @@ void itoa(i32 i, char b[]) {
         i = i / 10;
     } while (i);
 }
-
-// Our variables and functions
-
-static u32 internalAudioId = 0;
-static i32 remainingSubtitleFrames = 0;
 
 // Main entry points from ASM dispatchers
 
