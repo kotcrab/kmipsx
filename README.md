@@ -2,7 +2,7 @@ kmipsx
 ------
 
 kmipsx is an extension of the [kmips](https://github.com/kotcrab/kmips) assembler providing more complete tools suite
-for patching executables. The primary focus are PSP executables.
+for patching executables. The primary focus are PSP games.
 
 Features:
 
@@ -13,7 +13,7 @@ Features:
 
 ### Example
 
-See `example.main.kts` for a complete usage example. It shows how to:
+See [`example.main.kts`](https://github.com/kotcrab/kmipsx/blob/master/example.main.kts) for a complete usage example. It shows how to:
 
 1) Patch offsets at the input EBOOT
 2) Assemble auxiliary patches that wouldn't fit into the original EBOOT
