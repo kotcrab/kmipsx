@@ -130,7 +130,7 @@ class ElfCodeCompiler internal constructor(
       .map { line -> line.dropWhile { it == ' ' } }
       .filter { it.startsWith("0x0000") }
       .map { it.split("                ") }
-      .map { it[1] to Integer.decode(it[0]) }
+      .map { it[1] to Integer.parseUnsignedInt(it[0].substring(2), 16) }
   }
 }
 
