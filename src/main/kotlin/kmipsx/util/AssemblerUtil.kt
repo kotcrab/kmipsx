@@ -1,6 +1,7 @@
 package kmipsx.util
 
 import kio.KioInputStream
+import kio.util.toUnsignedInt
 import kmips.Assembler
 import kmips.Reg
 import kmips.Reg.*
@@ -45,10 +46,10 @@ fun Assembler.zeroTerminatedString(string: String, charset: Charset = Charsets.U
       zeroWritten = true
       0
     }
-    val char0 = bytes.getOrElse(i + 3, defaultChar).toInt() shl 24
-    val char1 = bytes.getOrElse(i + 2, defaultChar).toInt() shl 16
-    val char2 = bytes.getOrElse(i + 1, defaultChar).toInt() shl 8
-    val char3 = bytes.getOrElse(i, defaultChar).toInt()
+    val char0 = bytes.getOrElse(i + 3, defaultChar).toUnsignedInt() shl 24
+    val char1 = bytes.getOrElse(i + 2, defaultChar).toUnsignedInt() shl 16
+    val char2 = bytes.getOrElse(i + 1, defaultChar).toUnsignedInt() shl 8
+    val char3 = bytes.getOrElse(i, defaultChar).toUnsignedInt()
     data(char0 or char1 or char2 or char3)
   }
   if (!zeroWritten) {
