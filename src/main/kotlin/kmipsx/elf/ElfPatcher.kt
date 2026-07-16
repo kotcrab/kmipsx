@@ -12,7 +12,17 @@ fun patchElf(
   baseProgramHeaderIndex: Int,
   relocationSectionHeaderIndex: Int? = null,
 ) {
-  ElfPatcher(inFile, outFile, patchSuite.patches, baseProgramHeaderIndex, relocationSectionHeaderIndex)
+  ElfPatcher(inFile, outFile, patchSuite.patches, baseProgramHeaderIndex, listOfNotNull(relocationSectionHeaderIndex))
+}
+
+fun patchElf(
+  inFile: File,
+  outFile: File,
+  patchSuite: ElfPatchSuite,
+  baseProgramHeaderIndex: Int,
+  relocationSectionHeaderIndexes: List<Int> = emptyList(),
+) {
+  ElfPatcher(inFile, outFile, patchSuite.patches, baseProgramHeaderIndex, relocationSectionHeaderIndexes)
 }
 
 private class ElfPatcher(
@@ -20,31 +30,33 @@ private class ElfPatcher(
   outFile: File,
   patches: List<ElfPatch>,
   baseProgramHeaderIndex: Int,
-  relocationSectionHeaderIndex: Int?,
+  relocationSectionHeaderIndexes: List<Int>,
 ) {
   private val elf = ElfFile(inFile)
 
   private val baseProgramHeader = elf.programHeaders[baseProgramHeaderIndex]
   private val nextProgramHeader = elf.programHeaders.getOrNull(baseProgramHeaderIndex + 1)
-  private val relocationSectionHeader = relocationSectionHeaderIndex?.let { elf.sectionHeaders[it] }
+  private val relocationSectionHeaders = relocationSectionHeaderIndexes.map { elf.sectionHeaders[it] }
 
   private val outBytes = inFile.readBytes()
   private val relocations = readRelocations(outBytes)
 
   // maps address to relocation type positions (for easy zeroing)
   private fun readRelocations(bytes: ByteArray): Map<Int, List<Int>> {
-    if (relocationSectionHeader == null) {
+    if (relocationSectionHeaders.isEmpty()) {
       return emptyMap()
     }
 
     val relocations = mutableMapOf<Int, MutableList<Int>>()
     with(KioInputStream(bytes)) {
-      setPos(relocationSectionHeader.offset)
-      while (pos() < relocationSectionHeader.offset + relocationSectionHeader.size) {
-        val addr = readInt()
-        val typePos = pos()
-        relocations.getOrPut(addr) { mutableListOf() }
-          .add(typePos)
+      relocationSectionHeaders.forEach { header ->
+        setPos(header.offset)
+        while (pos() < header.offset + header.size) {
+          val addr = readInt()
+          val typePos = pos()
+          relocations.getOrPut(addr) { mutableListOf() }
+            .add(typePos)
+        }
       }
     }
     return relocations
@@ -85,8 +97,8 @@ private class ElfPatcher(
     if (patch.relocationsToRemove.isEmpty()) {
       return
     }
-    if (relocationSectionHeader == null) {
-      error("A list of relocations to remove was provided but no relocation section header index was set")
+    if (relocationSectionHeaders.isEmpty()) {
+      error("A list of relocations to remove was provided but no relocation section header indexes were set")
     }
     patch.relocationsToRemove.forEach { addressToRemove ->
       val typePositions = relocations[addressToRemove]
