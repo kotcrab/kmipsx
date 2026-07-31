@@ -5,8 +5,6 @@ import kio.util.execute
 import kio.util.padArray
 import kio.util.stdoutStreamHandler
 import kio.util.toHex
-import kmips.Assembler
-import kmipsx.util.bytes
 import java.io.File
 
 fun writeElfSectionsInto(
@@ -42,13 +40,15 @@ fun writeElfSectionsInto(
 
 fun pspCodeCompiler(
   pspSdkDir: File,
+  gccFlags: List<String> = standardPspGccFlags,
+  ldFlags: List<String> = emptyList(),
   maxCompiledSize: Int = 256 * 1024,
 ): ElfCodeCompiler {
   return ElfCodeCompiler(
     toolchainDir = pspSdkDir,
     toolchainPrefix = "psp-",
-    gccFlags = standardPspGccFlags,
-    ldFlags = emptyList(),
+    gccFlags = gccFlags,
+    ldFlags = ldFlags,
     linkerTemplate = PspLinkerTemplate,
     maxCompiledSize = maxCompiledSize
   )
